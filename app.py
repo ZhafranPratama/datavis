@@ -62,8 +62,8 @@ st.markdown(
 # KPI
 # =====================================================
 
-industri_2020 = konsumsi.loc[0, 2020]
-industri_2024 = konsumsi.loc[0, 2024]
+industri_2020 = konsumsi.loc[0, "2020"]
+industri_2024 = konsumsi.loc[0, "2024"]
 
 growth = (
     (industri_2024 - industri_2020)
