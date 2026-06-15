@@ -142,8 +142,8 @@ with tab1:
 
     tahun = st.select_slider(
         "Pilih Tahun",
-        options=[2020, 2021, 2022, 2023, 2024],
-        value=2024
+        options=["2020", "2021", "2022", "2023", "2024"],
+        value="2024"
     )
 
     fig2 = px.bar(
