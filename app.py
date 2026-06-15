@@ -9,122 +9,310 @@ st.set_page_config(
     layout="wide"
 )
 
-# =====================================
-# LOAD EXCEL
-# =====================================
-EXCEL_FILE = "infografis_energi_manufaktur.xlsx"
+# =====================================================
+# LOAD DATA
+# =====================================================
 
 @st.cache_data
-def load_excel():
-    return pd.read_excel(
-        EXCEL_FILE,
-        sheet_name=None
+def load_data():
+
+    file = "data.xlsx"
+
+    konsumsi = pd.read_excel(
+        file,
+        sheet_name="Konsumsi energi per sektor"
     )
 
-excel_data = load_excel()
+    bauran = pd.read_excel(
+        file,
+        sheet_name="Bauran energi primer"
+    )
 
-# Melihat sheet yang tersedia
-sheet_names = list(excel_data.keys())
+    listrik = pd.read_excel(
+        file,
+        sheet_name="Konsumsi listrik perkapita"
+    )
 
-st.sidebar.title("Navigasi")
+    gap = pd.read_excel(
+        file,
+        sheet_name="Gap real & target bauran energi"
+    )
 
-selected_sheet = st.sidebar.selectbox(
-    "Pilih Dataset",
-    sheet_names
+    return konsumsi, bauran, listrik, gap
+
+
+konsumsi, bauran, listrik, gap = load_data()
+
+# =====================================================
+# HEADER
+# =====================================================
+
+st.title(
+    "⚡ Adaptasi Sektor Manufaktur terhadap Penggunaan Energi Bersih"
 )
 
-st.title("⚡ Adaptasi Sektor Manufaktur terhadap Energi Bersih")
+st.markdown(
+    """
+    Dashboard interaktif untuk mengeksplorasi perkembangan konsumsi energi,
+    bauran energi nasional, dan tantangan transisi energi pada sektor manufaktur.
+    """
+)
 
-# =====================================
-# OVERVIEW
-# =====================================
+# =====================================================
+# KPI
+# =====================================================
 
-st.subheader("Preview Dataset")
+industri_2020 = konsumsi.loc[0, 2020]
+industri_2024 = konsumsi.loc[0, 2024]
 
-df = excel_data[selected_sheet]
+growth = (
+    (industri_2024 - industri_2020)
+    / industri_2020
+    * 100
+)
 
-st.dataframe(df, use_container_width=True)
+ebt = bauran.loc[
+    bauran["Jenis Energi"].str.contains("EBT"),
+    "Porsi (%)"
+].values[0]
 
-st.markdown("---")
+target = 23
 
-# =====================================
-# VISUALISASI DINAMIS
-# =====================================
+gap_target = target - ebt
 
-numeric_cols = df.select_dtypes(include="number").columns.tolist()
+c1, c2, c3, c4 = st.columns(4)
 
-all_cols = df.columns.tolist()
+c1.metric(
+    "Energi Industri 2024",
+    f"{industri_2024:.2f}"
+)
 
-if len(numeric_cols) > 0:
+c2.metric(
+    "Pertumbuhan Industri",
+    f"{growth:.1f}%"
+)
 
-    st.subheader("Visualisasi Interaktif")
+c3.metric(
+    "Bauran EBT",
+    f"{ebt:.2f}%"
+)
 
-    x_col = st.selectbox(
-        "Kolom X",
-        all_cols
+c4.metric(
+    "Gap Target 2025",
+    f"{gap_target:.2f} ppt"
+)
+
+# =====================================================
+# TABS
+# =====================================================
+
+tab1, tab2, tab3, tab4 = st.tabs([
+    "📈 Konsumsi Energi",
+    "🌱 Bauran Energi",
+    "🎯 Gap Target",
+    "📖 Storytelling"
+])
+
+# =====================================================
+# TAB 1
+# =====================================================
+
+with tab1:
+
+    st.subheader("Konsumsi Energi per Sektor")
+
+    long_df = konsumsi.melt(
+        id_vars="Sektor",
+        var_name="Tahun",
+        value_name="Konsumsi"
     )
 
-    y_col = st.selectbox(
-        "Kolom Y",
-        numeric_cols
+    fig = px.line(
+        long_df,
+        x="Tahun",
+        y="Konsumsi",
+        color="Sektor",
+        markers=True
     )
-
-    chart_type = st.radio(
-        "Jenis Grafik",
-        [
-            "Line",
-            "Bar",
-            "Scatter"
-        ],
-        horizontal=True
-    )
-
-    if chart_type == "Line":
-        fig = px.line(
-            df,
-            x=x_col,
-            y=y_col,
-            markers=True
-        )
-
-    elif chart_type == "Bar":
-        fig = px.bar(
-            df,
-            x=x_col,
-            y=y_col
-        )
-
-    else:
-        fig = px.scatter(
-            df,
-            x=x_col,
-            y=y_col
-        )
 
     st.plotly_chart(
         fig,
         use_container_width=True
     )
 
-# =====================================
-# TAB KHUSUS
-# =====================================
+    tahun = st.select_slider(
+        "Pilih Tahun",
+        options=[2020, 2021, 2022, 2023, 2024],
+        value=2024
+    )
 
-tab1, tab2, tab3, tab4 = st.tabs([
-    "Konsumsi Energi",
-    "EBT",
-    "Gap Target",
-    "Storytelling"
-])
+    fig2 = px.bar(
+        konsumsi,
+        x="Sektor",
+        y=tahun,
+        text=tahun
+    )
 
-with tab1:
-    st.write("Visualisasi konsumsi energi sektor manufaktur")
+    st.plotly_chart(
+        fig2,
+        use_container_width=True
+    )
+
+# =====================================================
+# TAB 2
+# =====================================================
 
 with tab2:
-    st.write("Visualisasi bauran energi dan EBT")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+
+        fig3 = px.pie(
+            bauran,
+            names="Jenis Energi",
+            values="Porsi (%)",
+            hole=0.5
+        )
+
+        st.plotly_chart(
+            fig3,
+            use_container_width=True
+        )
+
+    with col2:
+
+        gauge = go.Figure(
+            go.Indicator(
+                mode="gauge+number",
+                value=float(ebt),
+                title={"text": "Progress EBT"},
+                gauge={
+                    "axis": {"range": [0, 23]}
+                }
+            )
+        )
+
+        st.plotly_chart(
+            gauge,
+            use_container_width=True
+        )
+
+    st.subheader(
+        "Konsumsi Listrik per Kapita"
+    )
+
+    listrik_clean = listrik.copy()
+
+    listrik_clean["kWh/Kapita"] = pd.to_numeric(
+        listrik_clean["kWh/Kapita"],
+        errors="coerce"
+    )
+
+    fig4 = px.line(
+        listrik_clean,
+        x="Tahun",
+        y="kWh/Kapita",
+        markers=True
+    )
+
+    st.plotly_chart(
+        fig4,
+        use_container_width=True
+    )
+
+# =====================================================
+# TAB 3
+# =====================================================
 
 with tab3:
-    st.write("Visualisasi gap target EBT")
+
+    gap_clean = gap.iloc[:3].copy()
+
+    gap_clean["Realisasi (%)"] = pd.to_numeric(
+        gap_clean["Realisasi (%)"]
+    )
+
+    gap_clean["Target (%)"] = pd.to_numeric(
+        gap_clean["Target (%)"]
+    )
+
+    fig5 = go.Figure()
+
+    fig5.add_bar(
+        name="Realisasi",
+        x=gap_clean["Indikator"],
+        y=gap_clean["Realisasi (%)"]
+    )
+
+    fig5.add_bar(
+        name="Target",
+        x=gap_clean["Indikator"],
+        y=gap_clean["Target (%)"]
+    )
+
+    fig5.update_layout(
+        barmode="group"
+    )
+
+    st.plotly_chart(
+        fig5,
+        use_container_width=True
+    )
+
+    fig6 = px.line(
+        gap_clean,
+        x="Indikator",
+        y="Gap (ppt)",
+        markers=True
+    )
+
+    st.plotly_chart(
+        fig6,
+        use_container_width=True
+    )
+
+# =====================================================
+# TAB 4
+# =====================================================
 
 with tab4:
-    st.write("Storytelling transisi energi sektor manufaktur")
+
+    st.header(
+        "Perjalanan Adaptasi Manufaktur menuju Energi Bersih"
+    )
+
+    st.markdown(
+        """
+        ### 1. Konsumsi Energi Industri Terus Meningkat
+
+        Konsumsi energi sektor industri meningkat dari
+        **2.37** menjadi **4.52 juta TJ**
+        dalam periode 2020–2024.
+
+        ---
+        
+        ### 2. Energi Fosil Masih Dominan
+
+        Bauran energi nasional masih didominasi
+        batubara, minyak bumi, dan gas bumi.
+
+        ---
+        
+        ### 3. Target EBT Belum Tercapai
+
+        Realisasi EBT tahun 2023 baru mencapai
+        **13.09%**, sementara target nasional
+        sebesar **23%** pada tahun 2025.
+
+        ---
+        
+        ### 4. Strategi Adaptasi
+
+        - PLTS Atap Industri
+        - ISO 50001
+        - Power Purchase Agreement (PPA)
+        - Green Hydrogen
+        - Regulasi Emisi Industri
+        """
+    )
